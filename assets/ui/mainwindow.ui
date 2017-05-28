@@ -11,59 +11,57 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Proxy Harvester</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="../assets.qrc">
+    <normaloff>:/icons/img/applications-internet.png</normaloff>:/icons/img/applications-internet.png</iconset>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout">
+   <layout class="QVBoxLayout" name="verticalLayout_2">
     <item>
-     <widget class="QTabWidget" name="tabWidget">
-      <property name="currentIndex">
-       <number>0</number>
-      </property>
-      <widget class="QWidget" name="scraperTab">
-       <attribute name="title">
-        <string>Scraper</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_2">
-        <item>
-         <widget class="QTableView" name="tableView"/>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="checkerTab">
-       <attribute name="title">
-        <string>Checker</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_3">
-        <item>
-         <widget class="QTableView" name="tableView_2"/>
-        </item>
-       </layout>
-      </widget>
-     </widget>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="horizontalLayout">
+     <layout class="QVBoxLayout" name="verticalLayout">
       <item>
-       <widget class="QProgressBar" name="progressBar">
-        <property name="value">
-         <number>0</number>
-        </property>
-       </widget>
+       <widget class="QTableView" name="proxiesTable"/>
       </item>
       <item>
-       <widget class="QPushButton" name="startButton">
-        <property name="text">
-         <string>Start</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="stopButton">
-        <property name="text">
-         <string>Stop</string>
-        </property>
-       </widget>
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QProgressBar" name="progressBar">
+          <property name="value">
+           <number>0</number>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="startButton">
+          <property name="text">
+           <string>Start</string>
+          </property>
+          <property name="icon">
+           <iconset resource="../assets.qrc">
+            <normaloff>:/icons/img/media-playback-start.png</normaloff>:/icons/img/media-playback-start.png</iconset>
+          </property>
+          <property name="iconSize">
+           <size>
+            <width>16</width>
+            <height>16</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="stopButton">
+          <property name="text">
+           <string>Stop</string>
+          </property>
+          <property name="icon">
+           <iconset resource="../assets.qrc">
+            <normaloff>:/icons/img/media-playback-stop.png</normaloff>:/icons/img/media-playback-stop.png</iconset>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </item>
@@ -82,61 +80,119 @@
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionImport_proxies"/>
-    <addaction name="actionExport_proxies"/>
+    <addaction name="importProxiesAction"/>
+    <addaction name="exportProxiesAction"/>
     <addaction name="separator"/>
-    <addaction name="actionQuit"/>
+    <addaction name="recentFilesAction"/>
+    <addaction name="separator"/>
+    <addaction name="quitAction"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
      <string>Help</string>
     </property>
-    <addaction name="actionAbout"/>
+    <addaction name="aboutAction"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
      <string>Edit</string>
     </property>
-    <addaction name="actionClear_table"/>
+    <addaction name="clearTableAction"/>
     <addaction name="separator"/>
-    <addaction name="actionOptions"/>
+    <addaction name="optionsAction"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <action name="actionQuit">
+  <widget class="QToolBar" name="toolBar">
+   <property name="windowTitle">
+    <string>toolBar</string>
+   </property>
+   <property name="movable">
+    <bool>false</bool>
+   </property>
+   <property name="floatable">
+    <bool>false</bool>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+   <addaction name="importProxiesAction"/>
+   <addaction name="exportProxiesAction"/>
+   <addaction name="separator"/>
+   <addaction name="clearTableAction"/>
+   <addaction name="separator"/>
+   <addaction name="optionsAction"/>
+   <addaction name="separator"/>
+   <addaction name="quitAction"/>
+  </widget>
+  <action name="quitAction">
+   <property name="icon">
+    <iconset resource="../assets.qrc">
+     <normaloff>:/icons/img/system-log-out.png</normaloff>:/icons/img/system-log-out.png</iconset>
+   </property>
    <property name="text">
     <string>Quit</string>
    </property>
   </action>
-  <action name="actionAbout">
+  <action name="aboutAction">
+   <property name="icon">
+    <iconset resource="../assets.qrc">
+     <normaloff>:/icons/img/help-browser.png</normaloff>:/icons/img/help-browser.png</iconset>
+   </property>
    <property name="text">
     <string>About</string>
    </property>
   </action>
-  <action name="actionClear_table">
+  <action name="clearTableAction">
+   <property name="icon">
+    <iconset resource="../assets.qrc">
+     <normaloff>:/icons/img/edit-clear.png</normaloff>:/icons/img/edit-clear.png</iconset>
+   </property>
    <property name="text">
-    <string>Clear table</string>
+    <string>Clear Table</string>
    </property>
   </action>
-  <action name="actionOptions">
+  <action name="optionsAction">
+   <property name="icon">
+    <iconset resource="../assets.qrc">
+     <normaloff>:/icons/img/preferences-system.png</normaloff>:/icons/img/preferences-system.png</iconset>
+   </property>
    <property name="text">
     <string>Options</string>
    </property>
   </action>
-  <action name="actionImport_proxies">
+  <action name="importProxiesAction">
+   <property name="icon">
+    <iconset resource="../assets.qrc">
+     <normaloff>:/icons/img/document-open.png</normaloff>:/icons/img/document-open.png</iconset>
+   </property>
    <property name="text">
     <string>Import proxies</string>
    </property>
   </action>
-  <action name="actionExport_proxies">
+  <action name="exportProxiesAction">
+   <property name="icon">
+    <iconset resource="../assets.qrc">
+     <normaloff>:/icons/img/document-save.png</normaloff>:/icons/img/document-save.png</iconset>
+   </property>
    <property name="text">
     <string>Export proxies</string>
    </property>
   </action>
+  <action name="recentFilesAction">
+   <property name="text">
+    <string>Recent Files</string>
+   </property>
+  </action>
  </widget>
- <resources/>
+ <resources>
+  <include location="../assets.qrc"/>
+ </resources>
  <connections/>
 </ui>
