@@ -2,6 +2,4 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-_/
 env/
-Makefile
