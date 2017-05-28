@@ -17,7 +17,7 @@ from .helpers import readTextFile
 from .version import __version__
 
 ui = uic.loadUiType(os.path.join(ROOT, "assets", "ui", "mainwindow.ui"))[0]
-columnData = namedtuple('str', ["label", "width"])
+ColumnData = namedtuple('ColumnData', ["label", "width"])
 
 class MainWindow(QtWidgets.QMainWindow, ui):
     def __init__(self, parent=None):
@@ -31,14 +31,14 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self._recentFiles = []
         self._recentFilesActions = []
         self._proxiesModel = OrderedDict([
-            ("ip", columnData("IP", 0)),
-            ("port", columnData("Port", 0)),
-            ("user", columnData("Username", 0)),
-            ("pass", columnData("Password", 0)),
-            ("type", columnData("Type", 0)),
-            ("anon", columnData("Anonymous", 0)),
-            ("speed", columnData("Speed", 0)),
-            ("status", columnData("Status", 0)),
+            ("ip", ColumnData("IP", 0)),
+            ("port", ColumnData("Port", 0)),
+            ("user", ColumnData("Username", 0)),
+            ("pass", ColumnData("Password", 0)),
+            ("type", ColumnData("Type", 0)),
+            ("anon", ColumnData("Anonymous", 0)),
+            ("speed", ColumnData("Speed", 0)),
+            ("status", ColumnData("Status", 0)),
         ])
         self._proxiesModelColumns = list(self._proxiesModel.keys())
         # UI
@@ -66,6 +66,8 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.pulseTimer.timeout.connect(self.pulse)
         self.pulseTimer.start(1000)
         # Events
+        self.showEvent = self.onShow
+        self.resizeEvent = self.onResize
         self.closeEvent = self.onClose
         # Init
         self.centerWindow()
@@ -130,6 +132,9 @@ class MainWindow(QtWidgets.QMainWindow, ui):
                 result.append(model.data(model.index(row, i)))
         return result
 
+    def resizeTableColumns(self):
+        pass
+
     # Application Settings
     def loadSettings(self):
         if os.path.isfile(self._settingsFile):
@@ -162,7 +167,21 @@ class MainWindow(QtWidgets.QMainWindow, ui):
 
     def openRecentFile(self):
         filePath = str(self.sender().data())
-        self.loadProxiesFromFile(filePath)
+        proxies = self.loadProxiesFromFile(filePath)
+        if proxies:
+            self._currentDir = QFileInfo(filePath).absoluteDir().absolutePath()
+            for proxie in proxies:
+                ip, port = proxie.split(':')
+                self.proxiesModel.appendRow([
+                    QStandardItem(ip),
+                    QStandardItem(port),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                ])
 
     def updateRecentFiles(self, filePath):
         if filePath not in self._recentFiles:
@@ -263,6 +282,14 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         )
 
     # Events
+    def onResize(self, event):
+        self.resizeTableColumns()
+        QtWidgets.QMainWindow.resizeEvent(self, event)
+
     def onClose(self, event):
         self.saveSettings()
         QtWidgets.QMainWindow.closeEvent(self, event)
+
+    def onShow(self, event):
+        self.resizeTableColumns()
+        QtWidgets.QMainWindow.showEvent(self, event)
