@@ -6,7 +6,7 @@ import platform
 
 from PyQt5 import uic, QtWidgets
 from PyQt5.QtCore import (
-    pyqtSlot, Qt, QSettings, QThread, QTimer, QT_VERSION_STR, PYQT_VERSION_STR
+    pyqtSlot, Qt, QFileInfo, QSettings, QThread, QTimer, QT_VERSION_STR, PYQT_VERSION_STR
 )
 from PyQt5.QtGui import QKeySequence
 
@@ -23,6 +23,8 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.setupUi(self)
         self.setWindowTitle("{} - {}".format(__title__, __version__))
         # Private members
+        self._applicationDir = ROOT
+        self._currentDir = self._applicationDir
         self._settingsFile = os.path.join(ROOT, "data", "settings.ini")
         self._recentFiles = []
         self._recentFilesActions = []
@@ -60,6 +62,45 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         fg.moveCenter(c)
         self.move(fg.topLeft())
 
+    def loadProxiesFromFile(self, filePath, fileType="txt", delimiter=':'):
+        """
+        Load proxies in valid format from file and append them to table.
+        Return set of proxies if one or more proxies are successfully imported otherwise return False.
+        """
+        if not os.path.exists(filePath):
+            return False
+        # text = readTextFile(filePath)
+        text = None
+        with open(filePath, 'r') as f:
+            text = f.read()
+        if not text:
+            return False
+        proxies = set()
+        for line in text.strip().splitlines():
+            proxie = line.strip().split(delimiter)
+            # TODO: validate proxie format
+            if len(proxie) not in [2, 4]:
+                continue
+            if "{}:{}".format(proxie[0], proxie[1]) not in proxies:
+                proxies.add("{}:{}".format(proxie[0], proxie[1]))
+        if len(proxies) == 0:
+            return False
+        return proxies
+
+    def saveProxiesToFile(self, proxies, filePath, fileType="txt"):
+        """
+        """
+        ok = False
+        msg = None
+        try:
+            with open(filePath, 'w') as f:
+                f.write('\n'.join(proxies))
+            ok = True
+        except Exception as e:
+            msg = str(e)
+
+        return ok, msg
+
     # Application Settings
     def loadSettings(self):
         if os.path.isfile(self._settingsFile):
@@ -90,6 +131,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
 
     def openRecentFile(self):
         filePath = str(self.sender().data())
+        self.loadProxiesFromFile(filePath)
 
     def updateRecentFiles(self, filePath):
         if filePath not in self._recentFiles:
@@ -116,11 +158,37 @@ class MainWindow(QtWidgets.QMainWindow, ui):
 
     @pyqtSlot()
     def importProxies(self):
-        pass
+        """
+        Load proxies from text file to table. Proxies should be in format ip:port or ip:port:username:password for
+        private proxies, delimited by newlines
+        """
+        filePath, fileType = QtWidgets.QFileDialog.getOpenFileName(self, "Import Proxies", self._currentDir, filter="Text files (*.txt)")
+        proxies = self.loadProxiesFromFile(filePath, fileType)
+        if proxies:
+            self._currentDir = QFileInfo(filePath).absoluteDir().absolutePath()
+            self.updateRecentFiles(filePath)
 
     @pyqtSlot()
     def exportProxies(self):
-        pass
+        """
+        Save proxies to text file in ip:port format or ip:port:username:password for private proxies, delimited by newlines
+        """
+        filePath, fileType = QtWidgets.QFileDialog.getSaveFileName(self, "Export Proxies", self._currentDir, filter="Text files (*.txt)")
+        if ".txt" in fileType:
+            fileType = "txt"
+        else:
+            return
+        if not filePath.endswith('.' + fileType):
+            filePath += '.' + fileType
+        # TODO:
+        ok, msg = self.saveProxiesToFile(proxies, filePath, fileType)
+        if ok:
+            self._currentDir = QFileInfo(filePath).absoluteDir().absolutePath()
+            self.updateRecentFiles(filePath)
+            QtWidgets.QMessageBox.information(self, "Info", "Successfully exported proxies to {}".format(filePath))
+        else:
+            QtWidgets.QMessageBox.warning(self, "Error", msg)
+
 
     @pyqtSlot()
     def clearRecentFiles(self):
