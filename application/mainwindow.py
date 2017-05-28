@@ -28,8 +28,17 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.statusbar.addPermanentWidget(self.proxiesCountLabel)
         self.statusbar.addPermanentWidget(self.activeThreadsLabel)
         # Connections
+        ## File Menu
+        self.importProxiesAction.triggered.connect(self.importProxies)
+        self.exportProxiesAction.triggered.connect(self.exportProxies)
         self.clearRecentFilesAction.triggered.connect(self.clearRecentFiles)
-
+        self.quitAction.triggered.connect(lambda: QtWidgets.QApplication.quit())
+        ## Edit menu
+        self.clearTableAction.triggered.connect(self.clearTable)
+        self.optionsAction.triggered.connect(self.options)
+        ## Help Menu
+        self.aboutAction.triggered.connect(self.about)
+        ##
         self.pulseTimer = QTimer(self)
         self.pulseTimer.timeout.connect(self.pulse)
         self.pulseTimer.start(1000)
@@ -101,10 +110,30 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         pass
 
     @pyqtSlot()
+    def importProxies(self):
+        pass
+
+    @pyqtSlot()
+    def exportProxies(self):
+        pass
+
+    @pyqtSlot()
     def clearRecentFiles(self):
         self._recentFiles = []
         self.updateRecentFilesActions()
         self.clearRecentFilesAction.setEnabled(False)
+
+    @pyqtSlot()
+    def clearTable(self):
+        pass
+
+    @pyqtSlot()
+    def options(self):
+        pass
+
+    @pyqtSlot()
+    def about(self):
+        pass
 
     # Events
     def onClose(self, event):
