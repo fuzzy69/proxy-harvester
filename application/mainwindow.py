@@ -66,10 +66,12 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.pulseTimer.timeout.connect(self.pulse)
         self.pulseTimer.start(1000)
         # Events
+        self.closeEvent = self.onClose
         # Init
+        self.centerWindow()
+        self.loadSettings()
         self.initRecentFiles()
         self.statusbar.showMessage("Ready.")
-        self.centerWindow()
 
     # Helpers
     def centerWindow(self):
@@ -134,11 +136,13 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             settings = QSettings(self._settingsFile, QSettings.IniFormat)
             self.restoreGeometry(settings.value("geometry", ''))
             self.restoreState(settings.value("windowState", ''))
+            self._recentFiles = settings.value("recentFiles", [], type=str)
 
     def saveSettings(self):
         settings = QSettings(self._settingsFile, QSettings.IniFormat)
         settings.setValue("geometry", self.saveGeometry())
         settings.setValue("windowState", self.saveState())
+        settings.setValue("recentFiles", self._recentFiles)
 
     # Recent Files
     def initRecentFiles(self):
