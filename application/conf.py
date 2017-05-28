@@ -6,7 +6,7 @@ from pathlib import Path
 
 __author__ = "fuzzy69"
 __title__ = "Proxy Harvester"
-__description__ = ""
+__description__ = "PyQt application for finding and checking proxies"
 
 ROOT = str(Path(os.path.realpath(os.path.dirname(__file__))).parent)
 HEADERS = {

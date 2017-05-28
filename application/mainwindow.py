@@ -2,9 +2,12 @@
 # !/usr/bin/env python
 
 import os
+import platform
 
 from PyQt5 import uic, QtWidgets
-from PyQt5.QtCore import pyqtSlot, Qt, QSettings, QThread, QTimer
+from PyQt5.QtCore import (
+    pyqtSlot, Qt, QSettings, QThread, QTimer, QT_VERSION_STR, PYQT_VERSION_STR
+)
 from PyQt5.QtGui import QKeySequence
 
 from .conf import __author__, __title__, __description__, ROOT, MAX_RECENT_FILES
@@ -135,7 +138,14 @@ class MainWindow(QtWidgets.QMainWindow, ui):
 
     @pyqtSlot()
     def about(self):
-        pass
+        QtWidgets.QMessageBox.about(self, "About {}".format(__title__),
+            """<b>{} v{}</b>
+            <p>{}
+            <p>Python {} - Qt {} - PyQt {} on {}""".format(
+                __title__, __version__, __description__,
+                platform.python_version(), QT_VERSION_STR, PYQT_VERSION_STR,
+                platform.system())
+        )
 
     # Events
     def onClose(self, event):
