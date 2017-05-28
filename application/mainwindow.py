@@ -8,7 +8,7 @@ from PyQt5 import uic, QtWidgets
 from PyQt5.QtCore import (
     pyqtSlot, Qt, QFileInfo, QSettings, QThread, QTimer, QT_VERSION_STR, PYQT_VERSION_STR
 )
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtGui import QKeySequence, QStandardItem, QStandardItemModel
 
 from .conf import __author__, __title__, __description__, ROOT, MAX_RECENT_FILES
 from .defaults import DELAY, THREADS, TIMEOUT
@@ -30,6 +30,9 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self._recentFilesActions = []
         # UI
         self.quitAction.setShortcut(QKeySequence(Qt.CTRL + Qt.Key_Q))
+        self.proxiesModel = QStandardItemModel()
+        self.proxiesModel.setHorizontalHeaderLabels(["IP", "Port", "Username", "Password", "Type", "Anonymous", "Speed", "Status"])
+        self.proxiesTable.setModel(self.proxiesModel)
         self.proxiesCountLabel = QtWidgets.QLabel(" Proxies: {:<5} ".format(0))
         self.activeThreadsLabel = QtWidgets.QLabel(" Active threads: {:<5} ".format(0))
         self.statusbar.addPermanentWidget(self.proxiesCountLabel)
@@ -167,6 +170,18 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         if proxies:
             self._currentDir = QFileInfo(filePath).absoluteDir().absolutePath()
             self.updateRecentFiles(filePath)
+            for proxie in proxies:
+                ip, port = proxie.split(':')
+                self.proxiesModel.appendRow([
+                    QStandardItem(ip),
+                    QStandardItem(port),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                ])
 
     @pyqtSlot()
     def exportProxies(self):
