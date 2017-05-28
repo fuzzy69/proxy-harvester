@@ -62,6 +62,9 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         ## Help Menu
         self.aboutAction.triggered.connect(self.about)
         ##
+        self.scrapeProxiesButton.clicked.connect(self.scrapeProxies)
+        self.checkProxiesButton.clicked.connect(self.checkProxies)
+        self.stopButton.clicked.connect(self.stop)
         self.pulseTimer = QTimer(self)
         self.pulseTimer.timeout.connect(self.pulse)
         self.pulseTimer.start(1000)
@@ -280,6 +283,29 @@ class MainWindow(QtWidgets.QMainWindow, ui):
                 platform.python_version(), QT_VERSION_STR, PYQT_VERSION_STR,
                 platform.system())
         )
+
+    @pyqtSlot()
+    def scrapeProxies(self):
+        self.scrapeProxiesButton.setEnabled(False)
+        self.checkProxiesButton.setEnabled(False)
+        self.stopButton.setEnabled(True)
+        self.statusbar.showMessage("Scraping proxies ...")
+
+    @pyqtSlot()
+    def checkProxies(self):
+        if self.proxiesModel.rowCount() == 0:
+            return
+        self.scrapeProxiesButton.setEnabled(False)
+        self.checkProxiesButton.setEnabled(False)
+        self.stopButton.setEnabled(True)
+        self.statusbar.showMessage("Checking proxies ...")
+
+    @pyqtSlot()
+    def stop(self):
+        self.scrapeProxiesButton.setEnabled(True)
+        self.checkProxiesButton.setEnabled(True)
+        self.stopButton.setEnabled(False)
+        self.statusbar.showMessage("Ready.")
 
     # Events
     def onResize(self, event):
