@@ -4,7 +4,8 @@
 import os
 
 from PyQt5 import uic, QtWidgets
-from PyQt5.QtCore import pyqtSlot, QSettings, QThread, QTimer
+from PyQt5.QtCore import pyqtSlot, Qt, QSettings, QThread, QTimer
+from PyQt5.QtGui import QKeySequence
 
 from .conf import __author__, __title__, __description__, ROOT, MAX_RECENT_FILES
 from .defaults import DELAY, THREADS, TIMEOUT
@@ -23,6 +24,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self._recentFiles = []
         self._recentFilesActions = []
         # UI
+        self.quitAction.setShortcut(QKeySequence(Qt.CTRL + Qt.Key_Q))
         self.proxiesCountLabel = QtWidgets.QLabel(" Proxies: {:<5} ".format(0))
         self.activeThreadsLabel = QtWidgets.QLabel(" Active threads: {:<5} ".format(0))
         self.statusbar.addPermanentWidget(self.proxiesCountLabel)

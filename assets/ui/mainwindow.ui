@@ -155,6 +155,9 @@
    <property name="text">
     <string>About</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+H</string>
+   </property>
   </action>
   <action name="clearTableAction">
    <property name="icon">
@@ -163,6 +166,9 @@
    </property>
    <property name="text">
     <string>Clear Table</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Del</string>
    </property>
   </action>
   <action name="optionsAction">
@@ -173,6 +179,9 @@
    <property name="text">
     <string>Options</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+.</string>
+   </property>
   </action>
   <action name="importProxiesAction">
    <property name="icon">
@@ -182,6 +191,9 @@
    <property name="text">
     <string>Import proxies</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
+   </property>
   </action>
   <action name="exportProxiesAction">
    <property name="icon">
@@ -190,6 +202,9 @@
    </property>
    <property name="text">
     <string>Export proxies</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
    </property>
   </action>
   <action name="clearRecentFilesAction">
@@ -202,6 +217,9 @@
    </property>
    <property name="text">
     <string>Clear Recent Files</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
    </property>
   </action>
  </widget>
