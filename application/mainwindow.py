@@ -2,6 +2,7 @@
 # !/usr/bin/env python
 
 import os
+from collections import namedtuple, OrderedDict
 import platform
 
 from PyQt5 import uic, QtWidgets
@@ -16,6 +17,7 @@ from .helpers import readTextFile
 from .version import __version__
 
 ui = uic.loadUiType(os.path.join(ROOT, "assets", "ui", "mainwindow.ui"))[0]
+columnData = namedtuple('str', ["label", "width"])
 
 class MainWindow(QtWidgets.QMainWindow, ui):
     def __init__(self, parent=None):
@@ -28,10 +30,21 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self._settingsFile = os.path.join(ROOT, "data", "settings.ini")
         self._recentFiles = []
         self._recentFilesActions = []
+        self._proxiesModel = OrderedDict([
+            ("ip", columnData("IP", 0)),
+            ("port", columnData("Port", 0)),
+            ("user", columnData("Username", 0)),
+            ("pass", columnData("Password", 0)),
+            ("type", columnData("Type", 0)),
+            ("anon", columnData("Anonymous", 0)),
+            ("speed", columnData("Speed", 0)),
+            ("status", columnData("Status", 0)),
+        ])
+        self._proxiesModelColumns = list(self._proxiesModel.keys())
         # UI
         self.quitAction.setShortcut(QKeySequence(Qt.CTRL + Qt.Key_Q))
         self.proxiesModel = QStandardItemModel()
-        self.proxiesModel.setHorizontalHeaderLabels(["IP", "Port", "Username", "Password", "Type", "Anonymous", "Speed", "Status"])
+        self.proxiesModel.setHorizontalHeaderLabels([col.label for _, col in self._proxiesModel.items()])
         self.proxiesTable.setModel(self.proxiesModel)
         self.proxiesCountLabel = QtWidgets.QLabel(" Proxies: {:<5} ".format(0))
         self.activeThreadsLabel = QtWidgets.QLabel(" Active threads: {:<5} ".format(0))
@@ -103,6 +116,17 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             msg = str(e)
 
         return ok, msg
+
+    def proxiesModelRow(self, row, columns=None):
+        result = []
+        model = self.proxiesModel
+        if columns:
+            for column in columns:
+                result.append(model.data(model.index(row, self._proxiesModelColumns.index(column))))
+        else:
+            for i, column in self._proxiesModelColumns:
+                result.append(model.data(model.index(row, i)))
+        return result
 
     # Application Settings
     def loadSettings(self):
@@ -195,7 +219,11 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             return
         if not filePath.endswith('.' + fileType):
             filePath += '.' + fileType
-        # TODO:
+        proxies = []
+        for row in range(self.proxiesModel.rowCount()):
+            ip, port = self.proxiesModelRow(row, ["ip", "port"])
+            proxie = "{}:{}".format(ip, port)
+            proxies.append(proxie)
         ok, msg = self.saveProxiesToFile(proxies, filePath, fileType)
         if ok:
             self._currentDir = QFileInfo(filePath).absoluteDir().absolutePath()
