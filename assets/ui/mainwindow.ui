@@ -80,10 +80,17 @@
     <property name="title">
      <string>File</string>
     </property>
+    <widget class="QMenu" name="recentFilesMenu">
+     <property name="title">
+      <string>Recent Files</string>
+     </property>
+     <addaction name="clearRecentFilesAction"/>
+     <addaction name="separator"/>
+    </widget>
     <addaction name="importProxiesAction"/>
     <addaction name="exportProxiesAction"/>
     <addaction name="separator"/>
-    <addaction name="recentFilesAction"/>
+    <addaction name="recentFilesMenu"/>
     <addaction name="separator"/>
     <addaction name="quitAction"/>
    </widget>
@@ -185,9 +192,16 @@
     <string>Export proxies</string>
    </property>
   </action>
-  <action name="recentFilesAction">
+  <action name="clearRecentFilesAction">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../assets.qrc">
+     <normaloff>:/icons/img/edit-clear.png</normaloff>:/icons/img/edit-clear.png</iconset>
+   </property>
    <property name="text">
-    <string>Recent Files</string>
+    <string>Clear Recent Files</string>
    </property>
   </action>
  </widget>

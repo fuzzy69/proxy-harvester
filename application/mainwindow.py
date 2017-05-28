@@ -28,6 +28,8 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.statusbar.addPermanentWidget(self.proxiesCountLabel)
         self.statusbar.addPermanentWidget(self.activeThreadsLabel)
         # Connections
+        self.clearRecentFilesAction.triggered.connect(self.clearRecentFiles)
+
         self.pulseTimer = QTimer(self)
         self.pulseTimer.timeout.connect(self.pulse)
         self.pulseTimer.start(1000)
@@ -69,16 +71,40 @@ class MainWindow(QtWidgets.QMainWindow, ui):
                 self._recentFilesActions[i].setVisible(True)
             else:
                 self._recentFilesActions[i].setVisible(False)
-            # self.menuRecent_Files.addAction(self._recentFilesActions[i])
-        # self.updateRecentFilesActions()
+            self.recentFilesMenu.addAction(self._recentFilesActions[i])
+        self.updateRecentFilesActions()
 
     def openRecentFile(self):
         filePath = str(self.sender().data())
+
+    def updateRecentFiles(self, filePath):
+        if filePath not in self._recentFiles:
+            self._recentFiles.insert(0, filePath)
+        if len(self._recentFiles) > MAX_RECENT_FILES:
+            self._recentFiles.pop()
+        self.updateRecentFilesActions()
+        if not self.clearRecentFilesAction.isEnabled():
+            self.clearRecentFilesAction.setEnabled(True)
+
+    def updateRecentFilesActions(self):
+        for i in range(MAX_RECENT_FILES):
+            if i < len(self._recentFiles):
+                self._recentFilesActions[i].setText(self._recentFiles[i])
+                self._recentFilesActions[i].setData(self._recentFiles[i])
+                self._recentFilesActions[i].setVisible(True)
+            else:
+                self._recentFilesActions[i].setVisible(False)
 
     # Slots
     @pyqtSlot()
     def pulse(self):
         pass
+
+    @pyqtSlot()
+    def clearRecentFiles(self):
+        self._recentFiles = []
+        self.updateRecentFilesActions()
+        self.clearRecentFilesAction.setEnabled(False)
 
     # Events
     def onClose(self, event):
