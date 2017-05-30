@@ -5,10 +5,11 @@ import os
 from collections import namedtuple, OrderedDict
 import platform
 from queue import Queue
+import webbrowser
 
 from PyQt5 import uic, QtWidgets
 from PyQt5.QtCore import (
-    pyqtSlot, Qt, QFileInfo, QSettings, QThread, QTimer, QT_VERSION_STR, PYQT_VERSION_STR
+    pyqtSlot, Qt, QFileInfo, QModelIndex, QSettings, QThread, QTimer, QT_VERSION_STR, PYQT_VERSION_STR
 )
 from PyQt5.QtGui import QKeySequence, QStandardItem, QStandardItemModel
 
@@ -19,8 +20,48 @@ from application.utils import split_list
 from application.version import __version__
 from application.workers import CheckProxiesWorker, MyThread, ScrapeProxiesWorker
 
+
 ui = uic.loadUiType(os.path.join(ROOT, "assets", "ui", "mainwindow.ui"))[0]
+OptionsUI = uic.loadUiType(os.path.join(ROOT, "assets", "ui", "optionsdialog.ui"))[0]
 ColumnData = namedtuple('ColumnData', ["label", "width"])
+
+class OptionsDialog(QtWidgets.QDialog, OptionsUI):
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+        self._mainWindow = parent
+        generalItem = QtWidgets.QListWidgetItem(self.listWidget)
+        generalItem.setText("General")
+        generalItem.setTextAlignment(Qt.AlignHCenter)
+        proxySourcesItem = QtWidgets.QListWidgetItem(self.listWidget)
+        proxySourcesItem.setText("Proxy Sources")
+        proxySourcesItem.setTextAlignment(Qt.AlignHCenter)
+        # Init values
+        self.listWidget.setCurrentItem(generalItem)
+        self.threadsCountSpinBox.setValue(self._mainWindow._threadsCount)
+        self.proxySourcesTable.setModel(self._mainWindow.proxySourcesModel)
+        self.proxySourcesTable.setColumnWidth(0, 300)
+        # Connections
+        self.listWidget.currentItemChanged.connect(self.changePange)
+        self.threadsCountSpinBox.valueChanged[int].connect(self.setThreadsCount)
+        self.proxySourcesTable.doubleClicked[QModelIndex].connect(self.openProxySourceInBrowser)
+
+    @pyqtSlot(QtWidgets.QListWidgetItem, QtWidgets.QListWidgetItem)
+    def changePange(self, current, previous):
+        if not current:
+            current = previous
+        self.stackedWidget.setCurrentIndex(self.listWidget.row(current))
+
+    @pyqtSlot(int)
+    def setThreadsCount(self, threads):
+        self._mainWindow._threadsCount = threads
+
+    @pyqtSlot(QModelIndex)
+    def openProxySourceInBrowser(self, modelIndex):
+        model = modelIndex.model()
+        row = modelIndex.row()
+        webbrowser.open(model.data(model.index(row, 0)))
 
 class MainWindow(QtWidgets.QMainWindow, ui):
     def __init__(self, parent=None):
@@ -47,6 +88,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self._proxies = set()
         self._progressTotal = 0
         self._progressDone = 0
+        self._threadsCount = THREADS
         self._threads = []
         self._workers = []
         # UI
@@ -54,6 +96,13 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.proxiesModel = QStandardItemModel()
         self.proxiesModel.setHorizontalHeaderLabels([col.label for _, col in self._proxiesModel.items()])
         self.proxiesTable.setModel(self.proxiesModel)
+        self.proxySourcesModel = QStandardItemModel(self)
+        self.proxySourcesModel.setHorizontalHeaderLabels(["URL", "Status"])
+        for i, url in enumerate(PROXY_SOURCES):
+            self.proxySourcesModel.appendRow([
+                QStandardItem(url),
+                QStandardItem(""),
+            ])
         self.proxiesCountLabel = QtWidgets.QLabel(" Proxies: {:<5} ".format(0))
         self.activeThreadsLabel = QtWidgets.QLabel(" Active threads: {:<5} ".format(0))
         self.statusbar.addPermanentWidget(self.proxiesCountLabel)
@@ -158,12 +207,14 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             self.restoreGeometry(settings.value("geometry", ''))
             self.restoreState(settings.value("windowState", ''))
             self._recentFiles = settings.value("recentFiles", [], type=str)
+            self._threadsCount = settings.value("threadsCount", THREADS, type=int)
 
     def saveSettings(self):
         settings = QSettings(self._settingsFile, QSettings.IniFormat)
         settings.setValue("geometry", self.saveGeometry())
         settings.setValue("windowState", self.saveState())
         settings.setValue("recentFiles", self._recentFiles)
+        settings.setValue("threadsCount", self._threadsCount)
 
     # Recent Files
     def initRecentFiles(self):
@@ -300,7 +351,9 @@ class MainWindow(QtWidgets.QMainWindow, ui):
 
     @pyqtSlot()
     def options(self):
-        pass
+        dialog = OptionsDialog(self)
+        dialog.exec_()
+        dialog.deleteLater()
 
     @pyqtSlot()
     def about(self):
@@ -321,7 +374,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.statusbar.showMessage("Scraping proxies ...")
         self.resetTable()
         self.progressBar.setValue(0)
-        queues = split_list(PROXY_SOURCES, THREADS)
+        queues = split_list(PROXY_SOURCES, self._threadsCount)
         self._progressTotal = len(PROXY_SOURCES)
         self._progressDone = 0
         self._threads = []
@@ -341,7 +394,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             self._workers[i].result.connect(self.onResult)
             self._workers[i].finished.connect(self._threads[i].quit)
             self._workers[i].finished.connect(self._workers[i].deleteLater)
-        for i in range(THREADS):
+        for i in range(self._threadsCount):
             self._threads[i].start()
 
     @pyqtSlot()
@@ -354,7 +407,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.statusbar.showMessage("Checking proxies ...")
         self.resetTable()
         self.progressBar.setValue(0)
-        queues = split_list(range(self.proxiesModel.rowCount()), THREADS)
+        queues = split_list(range(self.proxiesModel.rowCount()), self._threadsCount)
         self._progressTotal = self.proxiesModel.rowCount()
         self._progressDone = 0
         self._threads = []
@@ -376,7 +429,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             self._workers[i].finished.connect(self._threads[i].quit)
             self._workers[i].finished.connect(self._workers[i].deleteLater)
             self._workers[i].finished.connect(self.onFinished)
-        for i in range(THREADS):
+        for i in range(self._threadsCount):
             self._threads[i].start()
 
     @pyqtSlot()
