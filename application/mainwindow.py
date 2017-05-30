@@ -347,7 +347,8 @@ class MainWindow(QtWidgets.QMainWindow, ui):
 
     @pyqtSlot()
     def clearTable(self):
-        pass
+        for i in reversed(range(self.proxiesModel.rowCount())):
+            self.proxiesModel.removeRow(i)
 
     @pyqtSlot()
     def options(self):
