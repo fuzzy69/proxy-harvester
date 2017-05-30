@@ -1,5 +1,68 @@
 # -*- coding: UTF-8 -*-
 #!/usr/bin/env python
 
-class Proxy(object):
+import ipaddress
+
+
+class IPAddress(object):
+
+    def __init__(self, ip):
+        self._ip = ip
+
+    @staticmethod
+    def validate(ip):
+        try:
+            ipaddress.IPv4Address(ip)
+        except ipaddress.AddressValueError:
+            return False
+        else:
+            return True
+
+    @staticmethod
+    def geo_info(ip):
+        pass
+
+    @staticmethod
+    def external_ip(ip):
+        pass
+
+class ProxyError(Exception):
     pass
+
+class Proxy(object):
+
+    def __init__(self, ip, port, username=None, password=None, timeout=10, ssl=False):
+        Proxy.validate(ip, port)
+        self._ip = ip
+        self._port = port
+        self._username = username
+        self._password = password
+        self._is_alive = False
+
+    def __repr__(self):
+        return "<Proxie {}:{}>".format(self.ip, self.port)
+
+    def __str__(self):
+        return "{}:{}".format(self.ip, self.port)
+
+    def __eq__(self, other):
+        return self.ip == other.ip and self.port == other.port
+
+    @classmethod
+    def validate(cls, ip, port):
+        if not IPAddress.validate(ip):
+            raise ValueError("Invalid ip address")
+        if type(port) is not int or not (0 <= port <= 65535):
+            raise ValueError("Invalid port")
+
+    @property
+    def ip(self):
+        return self._ip
+
+    @property
+    def port(self):
+        return self._port
+
+    @property
+    def is_alive(self):
+        return self._is_alive

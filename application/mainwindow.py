@@ -4,6 +4,7 @@
 import os
 from collections import namedtuple, OrderedDict
 import platform
+from queue import Queue
 
 from PyQt5 import uic, QtWidgets
 from PyQt5.QtCore import (
@@ -11,10 +12,12 @@ from PyQt5.QtCore import (
 )
 from PyQt5.QtGui import QKeySequence, QStandardItem, QStandardItemModel
 
-from .conf import __author__, __title__, __description__, ROOT, MAX_RECENT_FILES
-from .defaults import DELAY, THREADS, TIMEOUT
-from .helpers import readTextFile
-from .version import __version__
+from application.conf import __author__, __title__, __description__, ROOT, MAX_RECENT_FILES
+from application.defaults import DELAY, THREADS, TIMEOUT, PROXY_SOURCES
+from application.helpers import readTextFile
+from application.utils import split_list
+from application.version import __version__
+from application.workers import CheckProxiesWorker, MyThread, ScrapeProxiesWorker
 
 ui = uic.loadUiType(os.path.join(ROOT, "assets", "ui", "mainwindow.ui"))[0]
 ColumnData = namedtuple('ColumnData', ["label", "width"])
@@ -41,6 +44,11 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             ("status", ColumnData("Status", 0)),
         ])
         self._proxiesModelColumns = list(self._proxiesModel.keys())
+        self._proxies = set()
+        self._progressTotal = 0
+        self._progressDone = 0
+        self._threads = []
+        self._workers = []
         # UI
         self.quitAction.setShortcut(QKeySequence(Qt.CTRL + Qt.Key_Q))
         self.proxiesModel = QStandardItemModel()
@@ -98,17 +106,19 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             text = f.read()
         if not text:
             return False
-        proxies = set()
+        added_proxies = 0
         for line in text.strip().splitlines():
             proxie = line.strip().split(delimiter)
             # TODO: validate proxie format
             if len(proxie) not in [2, 4]:
                 continue
-            if "{}:{}".format(proxie[0], proxie[1]) not in proxies:
-                proxies.add("{}:{}".format(proxie[0], proxie[1]))
-        if len(proxies) == 0:
+            if "{}:{}".format(proxie[0], proxie[1]) not in self._proxies:
+                self._proxies.add("{}:{}".format(proxie[0], proxie[1]))
+                added_proxies += 1
+        if not added_proxies:
             return False
-        return proxies
+
+        return self._proxies
 
     def saveProxiesToFile(self, proxies, filePath, fileType="txt"):
         """
@@ -134,6 +144,9 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             for i, column in self._proxiesModelColumns:
                 result.append(model.data(model.index(row, i)))
         return result
+
+    def setProxiesModelCell(self, row, column, value):
+        self.proxiesModel.setData(self.proxiesModel.index(row, self._proxiesModelColumns.index(column)), value)
 
     def resizeTableColumns(self):
         pass
@@ -204,10 +217,26 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             else:
                 self._recentFilesActions[i].setVisible(False)
 
+    def resetTable(self):
+        for i in range(self.proxiesModel.rowCount()):
+            self.setProxiesModelCell(i, "status", "")
+
     # Slots
     @pyqtSlot()
     def pulse(self):
-        pass
+        """
+        Periodically update gui with usefull info and controls
+        """
+        self.proxiesCountLabel.setText(" Proxies: {:<5} ".format(self.proxiesModel.rowCount()))
+        self.activeThreadsLabel.setText(" Active threads: {:<5} ".format(MyThread.activeCount))
+        if MyThread.activeCount == 0:
+            if not self.scrapeProxiesButton.isEnabled():
+                self.scrapeProxiesButton.setEnabled(True)
+            if not self.checkProxiesButton.isEnabled() and self.proxiesModel.rowCount() > 0:
+                    self.checkProxiesButton.setEnabled(True)
+            if self.stopButton.isEnabled():
+                self.stopButton.setEnabled(False)
+            self.statusbar.showMessage("Ready.")
 
     @pyqtSlot()
     def importProxies(self):
@@ -290,6 +319,30 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.checkProxiesButton.setEnabled(False)
         self.stopButton.setEnabled(True)
         self.statusbar.showMessage("Scraping proxies ...")
+        self.resetTable()
+        self.progressBar.setValue(0)
+        queues = split_list(PROXY_SOURCES, THREADS)
+        self._progressTotal = len(PROXY_SOURCES)
+        self._progressDone = 0
+        self._threads = []
+        self._workers = []
+        for i, urls in enumerate(queues):
+            self._threads.append(MyThread())
+            queue = Queue()
+            for url in urls:
+                queue.put(url)
+            self._workers.append(
+                ScrapeProxiesWorker(queue=queue, timeout=TIMEOUT, delay=DELAY)
+            )
+            self._workers[i].moveToThread(self._threads[i])
+            self._threads[i].started.connect(self._workers[i].start)
+            self._threads[i].finished.connect(self._threads[i].deleteLater)
+            self._workers[i].status.connect(self.onStatus)
+            self._workers[i].result.connect(self.onResult)
+            self._workers[i].finished.connect(self._threads[i].quit)
+            self._workers[i].finished.connect(self._workers[i].deleteLater)
+        for i in range(THREADS):
+            self._threads[i].start()
 
     @pyqtSlot()
     def checkProxies(self):
@@ -299,12 +352,75 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.checkProxiesButton.setEnabled(False)
         self.stopButton.setEnabled(True)
         self.statusbar.showMessage("Checking proxies ...")
+        self.resetTable()
+        self.progressBar.setValue(0)
+        queues = split_list(range(self.proxiesModel.rowCount()), THREADS)
+        self._progressTotal = self.proxiesModel.rowCount()
+        self._progressDone = 0
+        self._threads = []
+        self._workers = []
+        for i, rows in enumerate(queues):
+            self._threads.append(MyThread())
+            queue = Queue()
+            for row in rows:
+                url = self.proxiesModel.data(self.proxiesModel.index(row, 0))
+                queue.put((row, url))
+            self._workers.append(
+                CheckProxiesWorker(queue=queue, timeout=TIMEOUT, delay=DELAY)
+            )
+            self._workers[i].moveToThread(self._threads[i])
+            self._threads[i].started.connect(self._workers[i].start)
+            self._threads[i].finished.connect(self._threads[i].deleteLater)
+            self._workers[i].status.connect(self.onStatus)
+            self._workers[i].result.connect(self.onResult)
+            self._workers[i].finished.connect(self._threads[i].quit)
+            self._workers[i].finished.connect(self._workers[i].deleteLater)
+            self._workers[i].finished.connect(self.onFinished)
+        for i in range(THREADS):
+            self._threads[i].start()
 
     @pyqtSlot()
     def stop(self):
-        self.scrapeProxiesButton.setEnabled(True)
-        self.checkProxiesButton.setEnabled(True)
+        self.scrapeProxiesButton.setEnabled(False)
+        self.checkProxiesButton.setEnabled(False)
         self.stopButton.setEnabled(False)
+        self.statusbar.showMessage("Stopping threads ...")
+        for i, _ in enumerate(self._workers):
+            self._workers[i]._running = False
+
+
+    @pyqtSlot(object)
+    def onStatus(self, status):
+        if status["action"] == "check":
+            self.setProxiesModelCell(status["row"], "status", status["status"])
+
+    @pyqtSlot(object)
+    def onResult(self, result):
+        if result["action"] == "check":
+            model = self.proxiesModel
+            self.setProxiesModelCell(result["row"], "type", result["result"])
+            self._progressDone += 1
+            self.progressBar.setValue(int(float(self._progressDone) / self._progressTotal * 100))
+        elif result["action"] == "scrape":
+            for item in result["data"]:
+                if item in self._proxies:
+                    continue
+                ip, port = item.split(':')
+                self.proxiesModel.appendRow([
+                    QStandardItem(ip),
+                    QStandardItem(port),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                    QStandardItem(""),
+                ])
+            self._progressDone += 1
+            self.progressBar.setValue(int(float(self._progressDone) / self._progressTotal * 100))
+
+    @pyqtSlot()
+    def onFinished(self):
         self.statusbar.showMessage("Ready.")
 
     # Events
