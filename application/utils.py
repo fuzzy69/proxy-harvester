@@ -4,6 +4,7 @@
 import re
 from time import sleep
 
+import json
 import lxml.html
 import requests
 
@@ -80,11 +81,10 @@ urls = [
 'http://httpbin.org/get', 'https://httpbin.org/get',
 'http://httpbin.org/redirect/1', 'http://httpbin.org/status/404']
 
-def check_proxie(proxy, timeout=5):
+def check_proxie(proxy, real_ip, timeout=5):
     ok = False
-    result = None
+    result = {}
     message = None
-    sleep(1)
 #     proxies = {
 #         "http": "http://",
 #         "https": "http://",
@@ -97,7 +97,8 @@ def check_proxie(proxy, timeout=5):
 #     # is alive
 #     # get proxie type
 #     # get proxie speed
-#     # is anonymous
+    # is anonymous
+    result["anon"] = check_anonymity(proxy,real_ip)
 #     # get country
 #     try:
 #         response = requests.get(urls[0], timeout=timeout, headers=HEADERS, proxies=proxies)
@@ -111,3 +112,41 @@ def check_proxie(proxy, timeout=5):
 #         message = str(e)
 
     return ok, result, message
+
+def get_real_ip():
+    ok = True
+    ip = None
+    message = None
+
+    try:
+        r = requests.get("http://httpbin.org/get?show_env", headers=HEADERS, timeout=TIMEOUT)
+        if r.status_code == 200:
+            data = json.loads(r.text)
+            ip = data["origin"]
+    except Exception as e:
+        message = str(e)
+
+    return ok, ip, message
+
+def check_anonymity(proxy, real_ip):
+    result = None
+    proxies = {
+        "http": "http://{}/".format(proxy),
+        "https": "https://{}/".format(proxy),
+    }
+    try:
+        r = requests.get("http://httpbin.org/get?show_env", proxies=proxies, headers=HEADERS, timeout=TIMEOUT)
+        if r.status_code == 200:
+            data = json.loads(r.text)
+            origin = data["origin"]
+            via = data["headers"]["Via"]
+            if real_ip in origin:
+                result = "Transparent"
+            elif via:
+                result = "Anonymous"
+            else:
+                result = "High"
+    except Exception as e:
+        pass
+
+    return result

@@ -60,19 +60,20 @@ class CheckProxiesWorker(Worker):
         queue = kwargs["queue"]
         timeout = kwargs["timeout"]
         delay = kwargs["delay"]
+        real_ip = kwargs["real_ip"]
         while self._running and not queue.empty():
-            row, proxie = queue.get()
+            row, ip, port = queue.get()
             self.status.emit({
                 "action": "check",
                 "row": row,
                 "status": "Checking ...",
             })
-            ok, result, message = self._func(proxie)
+            ok, result, message = self._func("{}:{}".format(ip, port), real_ip)
             self.result.emit({
                 "action": "check",
                 "row": row,
                 "ok": ok,
-                "result": result,
+                "data": result,
                 "message": message,
             })
             self.status.emit({

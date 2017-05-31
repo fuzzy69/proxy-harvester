@@ -16,7 +16,7 @@ from PyQt5.QtGui import QKeySequence, QStandardItem, QStandardItemModel
 from application.conf import __author__, __title__, __description__, ROOT, MAX_RECENT_FILES
 from application.defaults import DELAY, THREADS, TIMEOUT, PROXY_SOURCES
 from application.helpers import readTextFile
-from application.utils import split_list
+from application.utils import get_real_ip, split_list
 from application.version import __version__
 from application.workers import CheckProxiesWorker, MyThread, ScrapeProxiesWorker
 
@@ -39,12 +39,16 @@ class OptionsDialog(QtWidgets.QDialog, OptionsUI):
         proxySourcesItem.setTextAlignment(Qt.AlignHCenter)
         # Init values
         self.listWidget.setCurrentItem(generalItem)
-        self.threadsCountSpinBox.setValue(self._mainWindow._threadsCount)
+        self.threadsCountSpinbox.setValue(self._mainWindow._threadsCount)
+        self.requestTimeoutSpinbox.setValue(self._mainWindow._requestTimeout)
+        self.requestsDelaySpinbox.setValue(self._mainWindow._requestsDelay)
         self.proxySourcesTable.setModel(self._mainWindow.proxySourcesModel)
         self.proxySourcesTable.setColumnWidth(0, 300)
         # Connections
         self.listWidget.currentItemChanged.connect(self.changePange)
-        self.threadsCountSpinBox.valueChanged[int].connect(self.setThreadsCount)
+        self.threadsCountSpinbox.valueChanged[int].connect(self.setThreadsCount)
+        self.requestTimeoutSpinbox.valueChanged[int].connect(self.setRequestTimeout)
+        self.requestsDelaySpinbox.valueChanged[int].connect(self.setRequestsDelay)
         self.proxySourcesTable.doubleClicked[QModelIndex].connect(self.openProxySourceInBrowser)
 
     @pyqtSlot(QtWidgets.QListWidgetItem, QtWidgets.QListWidgetItem)
@@ -57,6 +61,14 @@ class OptionsDialog(QtWidgets.QDialog, OptionsUI):
     def setThreadsCount(self, threads):
         self._mainWindow._threadsCount = threads
 
+    @pyqtSlot(int)
+    def setRequestTimeout(self, timeout):
+        self._mainWindow._requestTimeout = timeout
+
+    @pyqtSlot(int)
+    def setRequestsDelay(self, delay):
+        self._mainWindow._requestsDelay = delay
+
     @pyqtSlot(QModelIndex)
     def openProxySourceInBrowser(self, modelIndex):
         model = modelIndex.model()
@@ -65,7 +77,7 @@ class OptionsDialog(QtWidgets.QDialog, OptionsUI):
 
 class MainWindow(QtWidgets.QMainWindow, ui):
     def __init__(self, parent=None):
-        QtWidgets.QMainWindow.__init__(self, parent)
+        super().__init__(parent)
         self.setupUi(self)
         self.setWindowTitle("{} - {}".format(__title__, __version__))
         # Private members
@@ -81,7 +93,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             ("pass", ColumnData("Password", 0)),
             ("type", ColumnData("Type", 0)),
             ("anon", ColumnData("Anonymous", 0)),
-            ("speed", ColumnData("Speed", 0)),
+            ("speed", ColumnData("Speed (sec)", 0)),
             ("status", ColumnData("Status", 0)),
         ])
         self._proxiesModelColumns = list(self._proxiesModel.keys())
@@ -91,11 +103,15 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self._threadsCount = THREADS
         self._threads = []
         self._workers = []
+        self._realIP = None
+        self._requestTimeout = TIMEOUT
+        self._requestsDelay = DELAY
         # UI
         self.quitAction.setShortcut(QKeySequence(Qt.CTRL + Qt.Key_Q))
         self.proxiesModel = QStandardItemModel()
         self.proxiesModel.setHorizontalHeaderLabels([col.label for _, col in self._proxiesModel.items()])
         self.proxiesTable.setModel(self.proxiesModel)
+        self.proxiesTable.setColumnWidth(0, 200)
         self.proxySourcesModel = QStandardItemModel(self)
         self.proxySourcesModel.setHorizontalHeaderLabels(["URL", "Status"])
         for i, url in enumerate(PROXY_SOURCES):
@@ -208,13 +224,18 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             self.restoreState(settings.value("windowState", ''))
             self._recentFiles = settings.value("recentFiles", [], type=str)
             self._threadsCount = settings.value("threadsCount", THREADS, type=int)
+            self._requestTimeout = settings.value("requestTimeout", TIMEOUT, type=int)
+            self._requestsDelay = settings.value("requestsDelay", DELAY, type=int)
 
     def saveSettings(self):
+        print(self._requestsDelay)
         settings = QSettings(self._settingsFile, QSettings.IniFormat)
         settings.setValue("geometry", self.saveGeometry())
         settings.setValue("windowState", self.saveState())
         settings.setValue("recentFiles", self._recentFiles)
         settings.setValue("threadsCount", self._threadsCount)
+        settings.setValue("requestTimeout", self._requestTimeout)
+        settings.setValue("requestsDelay", self._requestsDelay)
 
     # Recent Files
     def initRecentFiles(self):
@@ -347,6 +368,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
 
     @pyqtSlot()
     def clearTable(self):
+        self._proxies = set()
         for i in reversed(range(self.proxiesModel.rowCount())):
             self.proxiesModel.removeRow(i)
 
@@ -408,6 +430,12 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.statusbar.showMessage("Checking proxies ...")
         self.resetTable()
         self.progressBar.setValue(0)
+        # Get real ip address
+        ok, ip, msg = get_real_ip()
+        if not ok:
+            QtWidgets.QMessageBox.warning("Error", msg)
+            return
+        self._realIP = ip
         queues = split_list(range(self.proxiesModel.rowCount()), self._threadsCount)
         self._progressTotal = self.proxiesModel.rowCount()
         self._progressDone = 0
@@ -417,10 +445,10 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             self._threads.append(MyThread())
             queue = Queue()
             for row in rows:
-                url = self.proxiesModel.data(self.proxiesModel.index(row, 0))
-                queue.put((row, url))
+                ip, port = self.proxiesModelRow(row, ["ip", "port"])
+                queue.put((row, ip, port))
             self._workers.append(
-                CheckProxiesWorker(queue=queue, timeout=TIMEOUT, delay=DELAY)
+                CheckProxiesWorker(queue=queue, timeout=TIMEOUT, delay=DELAY, real_ip=ip)
             )
             self._workers[i].moveToThread(self._threads[i])
             self._threads[i].started.connect(self._workers[i].start)
@@ -452,7 +480,8 @@ class MainWindow(QtWidgets.QMainWindow, ui):
     def onResult(self, result):
         if result["action"] == "check":
             model = self.proxiesModel
-            self.setProxiesModelCell(result["row"], "type", result["result"])
+            data = result["data"]
+            self.setProxiesModelCell(result["row"], "anon", data["anon"])
             self._progressDone += 1
             self.progressBar.setValue(int(float(self._progressDone) / self._progressTotal * 100))
         elif result["action"] == "scrape":
@@ -483,6 +512,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         QtWidgets.QMainWindow.resizeEvent(self, event)
 
     def onClose(self, event):
+        print(".")
         self.saveSettings()
         QtWidgets.QMainWindow.closeEvent(self, event)
 
