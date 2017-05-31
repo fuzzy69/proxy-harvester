@@ -2,7 +2,7 @@
 
 ### About
 
-PyQt5 multithreaded application for scraping and checking proxies.
+PyQt5 multithreaded application for scraping and checking proxies. **Notice**: work in progress.
 
 ### Screenshot
 
