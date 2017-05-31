@@ -14,7 +14,7 @@ from PyQt5.QtGui import QKeySequence, QStandardItem, QStandardItemModel
 
 from application.conf import __author__, __title__, __description__, ROOT, MAX_RECENT_FILES
 from application.defaults import DELAY, THREADS, TIMEOUT, PROXY_SOURCES
-from application.helpers import readTextFile
+from application.helpers import readTextFile, Logger
 from application.optionsdialog import OptionsDialog
 from application.proxy import Proxy
 from application.utils import get_real_ip, split_list
@@ -24,6 +24,7 @@ from application.workers import CheckProxiesWorker, MyThread, ScrapeProxiesWorke
 
 ui = uic.loadUiType(os.path.join(ROOT, "assets", "ui", "mainwindow.ui"))[0]
 ColumnData = namedtuple("ColumnData", ["label", "width"])
+logger = Logger(__name__)
 
 class MainWindow(QtWidgets.QMainWindow, ui):
     def __init__(self, parent=None):
@@ -129,13 +130,13 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             try:
                 proxy = Proxy(ip, int(port))
             except ValueError as e:
-                print("Invalid proxy {ip}:{port}, {msg}".format(ip=ip, port=port, msg=e))
+                logger.warning("Invalid proxy {ip}:{port}, {msg}".format(ip=ip, port=port, msg=e))
                 continue
             if proxy not in self._proxies:
                 self._proxies.add(proxy)
                 added_proxies += 1
             else:
-                print("Skipped duplicate proxy: {}".format(proxy))
+                logger.info("Skipped duplicate proxy: {}".format(proxy))
         if not added_proxies:
             return False
 

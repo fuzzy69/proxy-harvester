@@ -9,6 +9,10 @@ class IPAddress(object):
     def __init__(self, ip):
         self._ip = ip
 
+    @property
+    def ip(self):
+        return self._ip
+
     @staticmethod
     def validate(ip):
         try:
