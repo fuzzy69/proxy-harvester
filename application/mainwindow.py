@@ -38,14 +38,15 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self._recentFiles = []
         self._recentFilesActions = []
         self._proxiesModel = OrderedDict([
-            ("ip", ColumnData("IP", 0)),
-            ("port", ColumnData("Port", 0)),
-            ("user", ColumnData("Username", 0)),
-            ("pass", ColumnData("Password", 0)),
-            ("type", ColumnData("Type", 0)),
-            ("anon", ColumnData("Anonymous", 0)),
-            ("speed", ColumnData("Speed (sec)", 0)),
-            ("status", ColumnData("Status", 0)),
+            # (name, ColumnData(label, width))
+            ("ip", ColumnData("IP", 200)),
+            ("port", ColumnData("Port", 100)),
+            ("user", ColumnData("Username", None)),
+            ("pass", ColumnData("Password", None)),
+            ("type", ColumnData("Type", 150)),
+            ("anon", ColumnData("Anonymous", 150)),
+            ("speed", ColumnData("Speed (sec)", 150)),
+            ("status", ColumnData("Status", None)),
         ])
         self._proxiesModelColumns = list(self._proxiesModel.keys())
         self._proxies = set()
@@ -59,6 +60,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self._requestsDelay = DELAY
         # UI
         self.quitAction.setShortcut(QKeySequence(Qt.CTRL + Qt.Key_Q))
+        # TODO: custom model for proxies
         self.proxiesModel = QStandardItemModel()
         self.proxiesModel.setHorizontalHeaderLabels([col.label for _, col in self._proxiesModel.items()])
         self.proxiesTable.setModel(self.proxiesModel)
@@ -83,6 +85,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.clearRecentFilesAction.triggered.connect(self.clearRecentFiles)
         self.quitAction.triggered.connect(lambda: QtWidgets.QApplication.quit())
         ## Edit menu
+        self.removeSelectedAction.triggered.connect(self.removeSelected)
         self.clearTableAction.triggered.connect(self.clearTable)
         self.optionsAction.triggered.connect(self.options)
         ## Help Menu
@@ -103,6 +106,11 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.loadSettings()
         self.initRecentFiles()
         self.statusbar.showMessage("Ready.")
+        # Test
+        proxies = self.loadProxiesFromFile("data/proxies.txt")
+        if proxies:
+            for proxy in proxies:
+                self.appendModelRow(self.proxiesModel, ("ip", "port"), (proxy.ip, proxy.port))
 
     # Helpers
     def centerWindow(self):
@@ -135,6 +143,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             if proxy not in self._proxies:
                 self._proxies.add(proxy)
                 added_proxies += 1
+                logger.info("Added proxy: {}".format(proxy))
             else:
                 logger.info("Skipped duplicate proxy: {}".format(proxy))
         if not added_proxies:
@@ -176,7 +185,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             row = []
             for column in self._proxiesModelColumns:
                 value = values[columns.index(column)] if column in columns else ""
-                row.append(QStandardItem(value))
+                row.append(QStandardItem(str(value)))
             model.appendRow(row)
 
     def setModelRow(self, model, row, columns, values):
@@ -184,10 +193,18 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         """
         if 0 <= row <= model.rowCount():
             for column, value in zip(columns, values):
-                model.setData(model.index(row, self._proxiesModelColumns.index(column)), value)
+                model.setData(model.index(row, self._proxiesModelColumns.index(column)), str(value))
 
     def resizeTableColumns(self):
-        pass
+        table = self.proxiesTable
+        for column, data in self._proxiesModel.items():
+            width = None
+            if isinstance(data.width, int):
+                width = data.width
+            elif isinstance(data.width, float):
+                width = int(table.frameGeometry().width() * data.width)
+            if width:
+                table.setColumnWidth(self._proxiesModelColumns.index(column), width)
 
     # Application Settings
     def loadSettings(self):
@@ -231,7 +248,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         if proxies:
             self._currentDir = QFileInfo(filePath).absoluteDir().absolutePath()
             for proxy in proxies:
-                self.appendModelRow(self.proxiesModel, ("ip", "port"), (proxy.ip, str(proxy.port)))
+                self.appendModelRow(self.proxiesModel, ("ip", "port"), (proxy.ip, proxy.port))
 
     def updateRecentFiles(self, filePath):
         if filePath not in self._recentFiles:
@@ -284,7 +301,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             self._currentDir = QFileInfo(filePath).absoluteDir().absolutePath()
             self.updateRecentFiles(filePath)
             for proxy in proxies:
-                self.setModelRow(self.proxiesModel, ("ip", "port"), (proxy.ip, str(proxy.port)))
+                self.setModelRow(self.proxiesModel, ("ip", "port"), (proxy.ip, proxy.port))
 
     @pyqtSlot()
     def exportProxies(self):
@@ -319,10 +336,18 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self.clearRecentFilesAction.setEnabled(False)
 
     @pyqtSlot()
+    def removeSelected(self):
+        rows = {index.row() for index in  self.proxiesTable.selectionModel().selectedIndexes()}
+        for row in sorted(list(rows), reverse=True):
+            ip, port = self.modelRow(self.proxiesModel, row, ("ip", "port"))
+            self.proxiesModel.removeRow(row)
+            self._proxies.remove(Proxy(ip, int(port)))
+
+    @pyqtSlot()
     def clearTable(self):
         self._proxies = set()
-        for i in reversed(range(self.proxiesModel.rowCount())):
-            self.proxiesModel.removeRow(i)
+        for row in reversed(range(self.proxiesModel.rowCount())):
+            self.proxiesModel.removeRow(row)
 
     @pyqtSlot()
     def options(self):
@@ -423,7 +448,6 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         for i, _ in enumerate(self._workers):
             self._workers[i]._running = False
 
-
     @pyqtSlot(object)
     def onStatus(self, status):
         if status["action"] == "check":
@@ -431,21 +455,23 @@ class MainWindow(QtWidgets.QMainWindow, ui):
 
     @pyqtSlot(object)
     def onResult(self, result):
-        if result["action"] == "check":
-            model = self.proxiesModel
-            data = result["data"]
-            self.setModelRow(self.proxiesModel, result["row"], ("anon",), (data["anon"],))
+        if result["action"] in ("check", "scrape"):
+            if result["action"] == "check":
+                model = self.proxiesModel
+                data = result["data"]
+                self.setModelRow(self.proxiesModel, result["row"], ("anon",), (data["anon"],))
+            elif result["action"] == "scrape":
+                for proxy in result["data"]:
+                    if proxy not in self._proxies:
+                        self._proxies.add(proxy)
+                        self.appendModelRow(self.proxiesModel, ("ip", "port"), (proxy.ip, proxy.port))
+                        logger.info("Added proxy: {}".format(proxy))
+                    else:
+                        logger.info("Skipped duplicate proxy: {}".format(proxy))
             self._progressDone += 1
             self.progressBar.setValue(int(float(self._progressDone) / self._progressTotal * 100))
-        elif result["action"] == "scrape":
-            for proxy in result["data"]:
-                if str(proxy) in self._proxies:
-                    continue
-                self.appendModelRow(self.proxiesModel, ("ip", "port"), (proxy.ip, str(proxy.port)))
-            self._progressDone += 1
-            self.progressBar.setValue(int(float(self._progressDone) / self._progressTotal * 100))
-        if result["message"]:
-            logger.info(result["message"])
+            if result["message"]:
+                logger.info(result["message"])
 
     @pyqtSlot()
     def onFinished(self):

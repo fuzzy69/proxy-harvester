@@ -125,6 +125,9 @@ def get_real_ip():
 
     return ok, ip, message
 
+def check_proxy_type(proxy):
+    pass
+
 def check_anonymity(proxy, real_ip):
     result = None
     proxies = {

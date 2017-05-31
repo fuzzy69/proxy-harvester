@@ -137,6 +137,7 @@
     <property name="title">
      <string>Edit</string>
     </property>
+    <addaction name="removeSelectedAction"/>
     <addaction name="clearTableAction"/>
     <addaction name="separator"/>
     <addaction name="optionsAction"/>
@@ -165,6 +166,7 @@
    <addaction name="importProxiesAction"/>
    <addaction name="exportProxiesAction"/>
    <addaction name="separator"/>
+   <addaction name="removeSelectedAction"/>
    <addaction name="clearTableAction"/>
    <addaction name="separator"/>
    <addaction name="optionsAction"/>
@@ -253,6 +255,15 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+R</string>
+   </property>
+  </action>
+  <action name="removeSelectedAction">
+   <property name="icon">
+    <iconset resource="../assets.qrc">
+     <normaloff>:/icons/img/dialog-error.png</normaloff>:/icons/img/dialog-error.png</iconset>
+   </property>
+   <property name="text">
+    <string>Remove Selected</string>
    </property>
   </action>
  </widget>

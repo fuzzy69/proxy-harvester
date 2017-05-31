@@ -1,5 +1,7 @@
 <RCC>
   <qresource prefix="icons">
+    <file>img/dialog-error.png</file>
+    <file>img/list-remove.png</file>
     <file>img/applications-internet.png</file>
     <file>img/document-open.png</file>
     <file>img/document-save.png</file>
