@@ -16,6 +16,7 @@ from application.conf import __author__, __title__, __description__, ROOT, MAX_R
 from application.defaults import DELAY, THREADS, TIMEOUT, PROXY_SOURCES
 from application.helpers import readTextFile
 from application.optionsdialog import OptionsDialog
+from application.proxy import Proxy
 from application.utils import get_real_ip, split_list
 from application.version import __version__
 from application.workers import CheckProxiesWorker, MyThread, ScrapeProxiesWorker
@@ -111,7 +112,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
 
     def loadProxiesFromFile(self, filePath, fileType="txt", delimiter=':'):
         """
-        Load proxies in valid format from file and append them to table.
+        Load proxies in valid format from file and append them to table. Ignore duplicates.
         Return set of proxies if one or more proxies are successfully imported otherwise return False.
         """
         if not os.path.exists(filePath):
@@ -124,13 +125,17 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             return False
         added_proxies = 0
         for line in text.strip().splitlines():
-            proxie = line.strip().split(delimiter)
-            # TODO: validate proxie format
-            if len(proxie) not in [2, 4]:
+            ip, port = line.strip().split(delimiter)
+            try:
+                proxy = Proxy(ip, int(port))
+            except ValueError as e:
+                print("Invalid proxy {ip}:{port}, {msg}".format(ip=ip, port=port, msg=e))
                 continue
-            if "{}:{}".format(proxie[0], proxie[1]) not in self._proxies:
-                self._proxies.add("{}:{}".format(proxie[0], proxie[1]))
+            if proxy not in self._proxies:
+                self._proxies.add(proxy)
                 added_proxies += 1
+            else:
+                print("Skipped duplicate proxy: {}".format(proxy))
         if not added_proxies:
             return False
 
@@ -208,11 +213,10 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         proxies = self.loadProxiesFromFile(filePath)
         if proxies:
             self._currentDir = QFileInfo(filePath).absoluteDir().absolutePath()
-            for proxie in proxies:
-                ip, port = proxie.split(':')
+            for proxy in proxies:
                 self.proxiesModel.appendRow([
-                    QStandardItem(ip),
-                    QStandardItem(port),
+                    QStandardItem(proxy.ip),
+                    QStandardItem(str(proxy.port)),
                     QStandardItem(""),
                     QStandardItem(""),
                     QStandardItem(""),
@@ -271,11 +275,10 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         if proxies:
             self._currentDir = QFileInfo(filePath).absoluteDir().absolutePath()
             self.updateRecentFiles(filePath)
-            for proxie in proxies:
-                ip, port = proxie.split(':')
+            for proxy in proxies:
                 self.proxiesModel.appendRow([
-                    QStandardItem(ip),
-                    QStandardItem(port),
+                    QStandardItem(proxy.ip),
+                    QStandardItem(str(proxy.port)),
                     QStandardItem(""),
                     QStandardItem(""),
                     QStandardItem(""),
@@ -397,7 +400,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             queue = Queue()
             for row in rows:
                 ip, port = self.proxiesModelRow(row, ["ip", "port"])
-                queue.put((row, ip, port))
+                queue.put((row, Proxy(ip, int(port))))
             self._workers.append(
                 CheckProxiesWorker(queue=queue, timeout=TIMEOUT, delay=DELAY, real_ip=ip)
             )
@@ -436,13 +439,12 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             self._progressDone += 1
             self.progressBar.setValue(int(float(self._progressDone) / self._progressTotal * 100))
         elif result["action"] == "scrape":
-            for item in result["data"]:
-                if item in self._proxies:
+            for proxy in result["data"]:
+                if str(proxy) in self._proxies:
                     continue
-                ip, port = item.split(':')
                 self.proxiesModel.appendRow([
-                    QStandardItem(ip),
-                    QStandardItem(port),
+                    QStandardItem(proxy.ip),
+                    QStandardItem(proxy.port),
                     QStandardItem(""),
                     QStandardItem(""),
                     QStandardItem(""),

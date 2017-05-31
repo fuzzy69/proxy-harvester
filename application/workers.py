@@ -62,13 +62,13 @@ class CheckProxiesWorker(Worker):
         delay = kwargs["delay"]
         real_ip = kwargs["real_ip"]
         while self._running and not queue.empty():
-            row, ip, port = queue.get()
+            row, proxy = queue.get()
             self.status.emit({
                 "action": "check",
                 "row": row,
                 "status": "Checking ...",
             })
-            ok, result, message = self._func("{}:{}".format(ip, port), real_ip)
+            ok, result, message = self._func(proxy, real_ip)
             self.result.emit({
                 "action": "check",
                 "row": row,
@@ -81,8 +81,6 @@ class CheckProxiesWorker(Worker):
                 "row": row,
                 "status": "Done",
             })
-            # if queue.empty():
-            #     self.finished.emit()
             sleep(delay)
 
 class ScrapeProxiesWorker(Worker):

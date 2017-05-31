@@ -10,6 +10,8 @@ import requests
 
 from application.conf import HEADERS
 from application.defaults import TIMEOUT
+from application.proxy import Proxy
+
 
 MATCH_WHITESPACE = "\s+"
 MATCH_PROXY = "((\d{1,3})(\.\d{1,3}){3})(?:\s)*(?::)?(\d{1,5})"
@@ -54,11 +56,10 @@ def split_list(li, n):
 
     return [li[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n)]
 
-def scrape_proxies(url="http://free-proxy-list.net/"):
+def scrape_proxies(url):
     ok = True
     result = set()
     message = None
-
     try:
         r = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
         if r.status_code == 200:
@@ -66,14 +67,18 @@ def scrape_proxies(url="http://free-proxy-list.net/"):
             els = doc.xpath("//text()")
             text = ' '.join(els)
             text = re.sub(regex_whitespace, ' ', text)
-            # print(text)
             matches = re.findall(regex_proxy, text)
             for match in matches:
-                # TODO: validate proxy format
-                result.add("{}:{}".format(match[0], match[-1]))
+                try:
+                    proxy = Proxy(match[0], int(match[-1]))
+                except ValueError as e:
+                    print(e)
+                else:
+                    result.add(proxy)
     # TODO: manage errors
     except Exception as e:
         message = str(e)
+        print(e)
 
     return ok, result, message
 
@@ -85,21 +90,13 @@ def check_proxie(proxy, real_ip, timeout=5):
     ok = False
     result = {}
     message = None
-#     proxies = {
-#         "http": "http://",
-#         "https": "http://",
-#         proxies = {
-#     "http": "http://user:pass@10.10.1.10:3128/"
-# }
-# # ((?:\d{1,3})(?:\.\d{1,3}){3}(?:\s)*(?::)?(?:\d{1,5}))
-#     }
-#     # TODO:
-#     # is alive
-#     # get proxie type
-#     # get proxie speed
+    # TODO:
+    # is alive
+    # get proxie type
+    # get proxie speed
     # is anonymous
-    result["anon"] = check_anonymity(proxy,real_ip)
-#     # get country
+    result["anon"] = check_anonymity(proxy, real_ip)
+    # get country
 #     try:
 #         response = requests.get(urls[0], timeout=timeout, headers=HEADERS, proxies=proxies)
 #         resp = response.content

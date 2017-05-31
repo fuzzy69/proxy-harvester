@@ -48,12 +48,17 @@ class Proxy(object):
     def __eq__(self, other):
         return self.ip == other.ip and self.port == other.port
 
+    def __hash__(self):
+        return hash((self.ip, self.port))
+
     @classmethod
     def validate(cls, ip, port):
         if not IPAddress.validate(ip):
-            raise ValueError("Invalid ip address")
-        if type(port) is not int or not (0 <= port <= 65535):
-            raise ValueError("Invalid port")
+            raise ValueError("Invalid ip address format")
+        if type(port) is not int:
+            raise ValueError("Invalid port value type, int required")
+        if not (0 <= port <= 65535):
+            raise ValueError("Invalid port number")
 
     @property
     def ip(self):
@@ -66,3 +71,7 @@ class Proxy(object):
     @property
     def is_alive(self):
         return self._is_alive
+
+    @is_alive.setter
+    def is_alive(self, value):
+        self._is_alive = value
