@@ -6,7 +6,7 @@ PyQt5 multithreaded application for scraping and checking proxies.
 
 ### Screenshot
 
-![Screenshot](screenshots/main.jpg)
+![Screenshot](_/screenshot.gif)
 
 ### Requirements
 
