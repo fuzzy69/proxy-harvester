@@ -156,19 +156,35 @@ class MainWindow(QtWidgets.QMainWindow, ui):
 
         return ok, msg
 
-    def proxiesModelRow(self, row, columns=None):
-        result = []
-        model = self.proxiesModel
-        if columns:
-            for column in columns:
-                result.append(model.data(model.index(row, self._proxiesModelColumns.index(column))))
-        else:
-            for i, column in self._proxiesModelColumns:
-                result.append(model.data(model.index(row, i)))
-        return result
+    def modelRow(self, model, row, columns=None):
+        """
+        """
+        if 0 <= row <= model.rowCount():
+            result = []
+            if columns:
+                for column in columns:
+                    result.append(model.data(model.index(row, self._proxiesModelColumns.index(column))))
+            else:
+                for i, column in self._proxiesModelColumns:
+                    result.append(model.data(model.index(row, i)))
+            return result
 
-    def setProxiesModelCell(self, row, column, value):
-        self.proxiesModel.setData(self.proxiesModel.index(row, self._proxiesModelColumns.index(column)), value)
+    def appendModelRow(self, model, columns, values):
+        """
+        """
+        if len(columns) == len(values):
+            row = []
+            for column in self._proxiesModelColumns:
+                value = values[columns.index(column)] if column in columns else ""
+                row.append(QStandardItem(value))
+            model.appendRow(row)
+
+    def setModelRow(self, model, row, columns, values):
+        """
+        """
+        if 0 <= row <= model.rowCount():
+            for column, value in zip(columns, values):
+                model.setData(model.index(row, self._proxiesModelColumns.index(column)), value)
 
     def resizeTableColumns(self):
         pass
@@ -215,16 +231,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         if proxies:
             self._currentDir = QFileInfo(filePath).absoluteDir().absolutePath()
             for proxy in proxies:
-                self.proxiesModel.appendRow([
-                    QStandardItem(proxy.ip),
-                    QStandardItem(str(proxy.port)),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                ])
+                self.appendModelRow(self.proxiesModel, ("ip", "port"), (proxy.ip, str(proxy.port)))
 
     def updateRecentFiles(self, filePath):
         if filePath not in self._recentFiles:
@@ -245,8 +252,8 @@ class MainWindow(QtWidgets.QMainWindow, ui):
                 self._recentFilesActions[i].setVisible(False)
 
     def resetTable(self):
-        for i in range(self.proxiesModel.rowCount()):
-            self.setProxiesModelCell(i, "status", "")
+        for row in range(self.proxiesModel.rowCount()):
+            self.setModelRow(self.proxiesModel, row, ("type", "anon", "speed", "status"), ("", "", "", ""))
 
     # Slots
     @pyqtSlot()
@@ -277,16 +284,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             self._currentDir = QFileInfo(filePath).absoluteDir().absolutePath()
             self.updateRecentFiles(filePath)
             for proxy in proxies:
-                self.proxiesModel.appendRow([
-                    QStandardItem(proxy.ip),
-                    QStandardItem(str(proxy.port)),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                ])
+                self.setModelRow(self.proxiesModel, ("ip", "port"), (proxy.ip, str(proxy.port)))
 
     @pyqtSlot()
     def exportProxies(self):
@@ -302,7 +300,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             filePath += '.' + fileType
         proxies = []
         for row in range(self.proxiesModel.rowCount()):
-            ip, port = self.proxiesModelRow(row, ["ip", "port"])
+            ip, port = self.modelRow(self.proxiesModel, row, ("ip", "port"))
             proxie = "{}:{}".format(ip, port)
             proxies.append(proxie)
         ok, msg = self.saveProxiesToFile(proxies, filePath, fileType)
@@ -400,7 +398,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             self._threads.append(MyThread())
             queue = Queue()
             for row in rows:
-                ip, port = self.proxiesModelRow(row, ["ip", "port"])
+                ip, port = self.modelRow(self.proxiesModel, row, ("ip", "port"))
                 queue.put((row, Proxy(ip, int(port))))
             self._workers.append(
                 CheckProxiesWorker(queue=queue, timeout=TIMEOUT, delay=DELAY, real_ip=ip)
@@ -429,32 +427,25 @@ class MainWindow(QtWidgets.QMainWindow, ui):
     @pyqtSlot(object)
     def onStatus(self, status):
         if status["action"] == "check":
-            self.setProxiesModelCell(status["row"], "status", status["status"])
+            self.setModelRow(self.proxiesModel, status["row"], ("status"), (""))
 
     @pyqtSlot(object)
     def onResult(self, result):
         if result["action"] == "check":
             model = self.proxiesModel
             data = result["data"]
-            self.setProxiesModelCell(result["row"], "anon", data["anon"])
+            self.setModelRow(self.proxiesModel, result["row"], ("anon",), (data["anon"],))
             self._progressDone += 1
             self.progressBar.setValue(int(float(self._progressDone) / self._progressTotal * 100))
         elif result["action"] == "scrape":
             for proxy in result["data"]:
                 if str(proxy) in self._proxies:
                     continue
-                self.proxiesModel.appendRow([
-                    QStandardItem(proxy.ip),
-                    QStandardItem(str(proxy.port)),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                    QStandardItem(""),
-                ])
+                self.appendModelRow(self.proxiesModel, ("ip", "port"), (proxy.ip, str(proxy.port)))
             self._progressDone += 1
             self.progressBar.setValue(int(float(self._progressDone) / self._progressTotal * 100))
+        if result["message"]:
+            logger.info(result["message"])
 
     @pyqtSlot()
     def onFinished(self):
