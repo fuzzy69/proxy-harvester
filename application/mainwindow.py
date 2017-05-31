@@ -68,8 +68,10 @@ class MainWindow(QtWidgets.QMainWindow, ui):
                 QStandardItem(url),
                 QStandardItem(""),
             ])
+        self.realIPLabel = QtWidgets.QLabel(" Real IP: {:<15} ".format("___.___.___.___"))
         self.proxiesCountLabel = QtWidgets.QLabel(" Proxies: {:<5} ".format(0))
         self.activeThreadsLabel = QtWidgets.QLabel(" Active threads: {:<5} ".format(0))
+        self.statusbar.addPermanentWidget(self.realIPLabel)
         self.statusbar.addPermanentWidget(self.proxiesCountLabel)
         self.statusbar.addPermanentWidget(self.activeThreadsLabel)
         # Connections
@@ -384,6 +386,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             QtWidgets.QMessageBox.warning("Error", msg)
             return
         self._realIP = ip
+        self.realIPLabel.setText(" Real IP: {:<15} ".format(ip))
         queues = split_list(range(self.proxiesModel.rowCount()), self._threadsCount)
         self._progressTotal = self.proxiesModel.rowCount()
         self._progressDone = 0
