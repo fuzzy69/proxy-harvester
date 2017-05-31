@@ -5,7 +5,6 @@ import os
 from collections import namedtuple, OrderedDict
 import platform
 from queue import Queue
-import webbrowser
 
 from PyQt5 import uic, QtWidgets
 from PyQt5.QtCore import (
@@ -16,64 +15,14 @@ from PyQt5.QtGui import QKeySequence, QStandardItem, QStandardItemModel
 from application.conf import __author__, __title__, __description__, ROOT, MAX_RECENT_FILES
 from application.defaults import DELAY, THREADS, TIMEOUT, PROXY_SOURCES
 from application.helpers import readTextFile
+from application.optionsdialog import OptionsDialog
 from application.utils import get_real_ip, split_list
 from application.version import __version__
 from application.workers import CheckProxiesWorker, MyThread, ScrapeProxiesWorker
 
 
 ui = uic.loadUiType(os.path.join(ROOT, "assets", "ui", "mainwindow.ui"))[0]
-OptionsUI = uic.loadUiType(os.path.join(ROOT, "assets", "ui", "optionsdialog.ui"))[0]
-ColumnData = namedtuple('ColumnData', ["label", "width"])
-
-class OptionsDialog(QtWidgets.QDialog, OptionsUI):
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setupUi(self)
-        self._mainWindow = parent
-        generalItem = QtWidgets.QListWidgetItem(self.listWidget)
-        generalItem.setText("General")
-        generalItem.setTextAlignment(Qt.AlignHCenter)
-        proxySourcesItem = QtWidgets.QListWidgetItem(self.listWidget)
-        proxySourcesItem.setText("Proxy Sources")
-        proxySourcesItem.setTextAlignment(Qt.AlignHCenter)
-        # Init values
-        self.listWidget.setCurrentItem(generalItem)
-        self.threadsCountSpinbox.setValue(self._mainWindow._threadsCount)
-        self.requestTimeoutSpinbox.setValue(self._mainWindow._requestTimeout)
-        self.requestsDelaySpinbox.setValue(self._mainWindow._requestsDelay)
-        self.proxySourcesTable.setModel(self._mainWindow.proxySourcesModel)
-        self.proxySourcesTable.setColumnWidth(0, 300)
-        # Connections
-        self.listWidget.currentItemChanged.connect(self.changePange)
-        self.threadsCountSpinbox.valueChanged[int].connect(self.setThreadsCount)
-        self.requestTimeoutSpinbox.valueChanged[int].connect(self.setRequestTimeout)
-        self.requestsDelaySpinbox.valueChanged[int].connect(self.setRequestsDelay)
-        self.proxySourcesTable.doubleClicked[QModelIndex].connect(self.openProxySourceInBrowser)
-
-    @pyqtSlot(QtWidgets.QListWidgetItem, QtWidgets.QListWidgetItem)
-    def changePange(self, current, previous):
-        if not current:
-            current = previous
-        self.stackedWidget.setCurrentIndex(self.listWidget.row(current))
-
-    @pyqtSlot(int)
-    def setThreadsCount(self, threads):
-        self._mainWindow._threadsCount = threads
-
-    @pyqtSlot(int)
-    def setRequestTimeout(self, timeout):
-        self._mainWindow._requestTimeout = timeout
-
-    @pyqtSlot(int)
-    def setRequestsDelay(self, delay):
-        self._mainWindow._requestsDelay = delay
-
-    @pyqtSlot(QModelIndex)
-    def openProxySourceInBrowser(self, modelIndex):
-        model = modelIndex.model()
-        row = modelIndex.row()
-        webbrowser.open(model.data(model.index(row, 0)))
+ColumnData = namedtuple("ColumnData", ["label", "width"])
 
 class MainWindow(QtWidgets.QMainWindow, ui):
     def __init__(self, parent=None):
@@ -228,7 +177,6 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             self._requestsDelay = settings.value("requestsDelay", DELAY, type=int)
 
     def saveSettings(self):
-        print(self._requestsDelay)
         settings = QSettings(self._settingsFile, QSettings.IniFormat)
         settings.setValue("geometry", self.saveGeometry())
         settings.setValue("windowState", self.saveState())
@@ -512,7 +460,6 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         QtWidgets.QMainWindow.resizeEvent(self, event)
 
     def onClose(self, event):
-        print(".")
         self.saveSettings()
         QtWidgets.QMainWindow.closeEvent(self, event)
 
