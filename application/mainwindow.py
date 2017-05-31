@@ -444,7 +444,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
                     continue
                 self.proxiesModel.appendRow([
                     QStandardItem(proxy.ip),
-                    QStandardItem(proxy.port),
+                    QStandardItem(str(proxy.port)),
                     QStandardItem(""),
                     QStandardItem(""),
                     QStandardItem(""),
