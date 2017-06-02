@@ -22,9 +22,17 @@ from application.utils import get_real_ip, split_list
 from application.version import __version__
 from application.workers import CheckProxiesWorker, MyThread, ScrapeProxiesWorker
 
+
 ui = uic.loadUiType(os.path.join(ROOT, "assets", "ui", "mainwindow.ui"))[0]
 ColumnData = namedtuple("ColumnData", ["label", "width"])
 logger = Logger(__name__)
+
+REAL_IP_LABEL = """ Real IP: {:<15} """
+PROXIES_COUNT_LABEL = """ Proxies: {} / <span style="color: blue;">{}</span> / <span style="color: green;">{}</span> """
+TRANSPARENT_PROXIES_COUNT_LABEL = """ T: <span style="color: grey;">{:<5}</span> """
+ANONYMOUS_PROXIES_COUNT_LABEL = """ A: <span style="color: yellow;">{:<5}</span> """
+ELITE_PROXIES_COUNT_LABEL = """ E: <span style="color: green;">{:<5}</span> """
+ACTIVE_THREADS_LABEL = """ Active threads: {:<5} """
 
 class MainWindow(QtWidgets.QMainWindow, ui):
     def __init__(self, parent=None):
@@ -53,6 +61,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         self._proxiesModelColumns = list(self._proxiesModel.keys())
         self._proxies = set()
         self._checkedProxiesCount = 0
+        self._liveProxiesCount = 0
         self._transparentProxiesCount = 0
         self._anonymousProxiesCount = 0
         self._eliteProxiesCount = 0
@@ -79,12 +88,12 @@ class MainWindow(QtWidgets.QMainWindow, ui):
                 QStandardItem(""),
             ])
         self.testButton.setVisible(False)
-        self.realIPLabel = QtWidgets.QLabel(" Real IP: {:<15} ".format("___.___.___.___"))
-        self.proxiesCountLabel = QtWidgets.QLabel(" Proxies: {:<5} / {:5}".format(len(self._proxies), self._checkedProxiesCount))
-        self.transparentProxiesCountLabel = QtWidgets.QLabel(" T: {:<5} ".format(self._transparentProxiesCount))
-        self.anonymousProxiesCountLabel = QtWidgets.QLabel(" A: {:<5} ".format(self._anonymousProxiesCount))
-        self.eliteProxiesCountLabel = QtWidgets.QLabel(" E: {:<5} ".format(self._eliteProxiesCount))
-        self.activeThreadsLabel = QtWidgets.QLabel(" Active threads: {:<5} ".format(MyThread.activeCount))
+        self.realIPLabel = QtWidgets.QLabel(REAL_IP_LABEL.format("___.___.___.___"))
+        self.proxiesCountLabel = QtWidgets.QLabel(PROXIES_COUNT_LABEL.format(len(self._proxies), self._checkedProxiesCount, self._liveProxiesCount))
+        self.transparentProxiesCountLabel = QtWidgets.QLabel(TRANSPARENT_PROXIES_COUNT_LABEL.format(self._transparentProxiesCount))
+        self.anonymousProxiesCountLabel = QtWidgets.QLabel(ANONYMOUS_PROXIES_COUNT_LABEL.format(self._anonymousProxiesCount))
+        self.eliteProxiesCountLabel = QtWidgets.QLabel(ELITE_PROXIES_COUNT_LABEL.format(self._eliteProxiesCount))
+        self.activeThreadsLabel = QtWidgets.QLabel(ACTIVE_THREADS_LABEL.format(MyThread.activeCount))
         self.statusbar.addPermanentWidget(self.realIPLabel)
         self.statusbar.addPermanentWidget(self.proxiesCountLabel)
         self.statusbar.addPermanentWidget(self.transparentProxiesCountLabel)
@@ -94,7 +103,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         # Connections
         ## File Menu
         self.importProxiesAction.triggered.connect(self.importProxies)
-        self.exportProxiesAction.triggered.connect(self.exportProxies)
+        # self.exportProxiesAction.triggered.connect(self.exportProxies)
         self.clearRecentFilesAction.triggered.connect(self.clearRecentFiles)
         self.quitAction.triggered.connect(lambda: QtWidgets.QApplication.quit())
         ## Edit menu
@@ -212,6 +221,12 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             for column, value in zip(columns, values):
                 model.setData(model.index(row, self._proxiesModelColumns.index(column)), str(value))
 
+    def removeModelRows(self, model, rows):
+        """
+        """
+        for row in sorted(rows, reverse=True):
+            model.removeRow(row)
+
     def resizeTableColumns(self):
         table = self.proxiesTable
         for column, data in self._proxiesModel.items():
@@ -295,11 +310,11 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         """
         Periodically update gui with usefull info and controls
         """
-        self.proxiesCountLabel.setText(" Proxies: {:<5} / {:5}".format(len(self._proxies), self._checkedProxiesCount))
-        self.transparentProxiesCountLabel.setText(" T: {:<5} ".format(self._transparentProxiesCount))
-        self.anonymousProxiesCountLabel.setText(" A: {:<5} ".format(self._anonymousProxiesCount))
-        self.eliteProxiesCountLabel.setText(" E: {:<5} ".format(self._eliteProxiesCount))
-        self.activeThreadsLabel.setText(" Active threads: {:<5} ".format(MyThread.activeCount))
+        self.proxiesCountLabel.setText(PROXIES_COUNT_LABEL.format(len(self._proxies), self._checkedProxiesCount, self._liveProxiesCount))
+        self.transparentProxiesCountLabel.setText(TRANSPARENT_PROXIES_COUNT_LABEL.format(self._transparentProxiesCount))
+        self.anonymousProxiesCountLabel.setText(ANONYMOUS_PROXIES_COUNT_LABEL.format(self._anonymousProxiesCount))
+        self.eliteProxiesCountLabel.setText(ELITE_PROXIES_COUNT_LABEL.format(self._eliteProxiesCount))
+        self.activeThreadsLabel.setText(ACTIVE_THREADS_LABEL.format(MyThread.activeCount))
         if MyThread.activeCount == 0:
             if not self.scrapeProxiesButton.isEnabled():
                 self.scrapeProxiesButton.setEnabled(True)
@@ -323,8 +338,7 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             for proxy in proxies:
                 self.setModelRow(self.proxiesModel, ("ip", "port"), (proxy.ip, proxy.port))
 
-    @pyqtSlot()
-    def exportProxies(self):
+    def exportProxies(self, rows=None):
         """
         Save proxies to text file in ip:port format or ip:port:username:password for private proxies, delimited by newlines
         """
@@ -336,7 +350,11 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         if not filePath.endswith('.' + fileType):
             filePath += '.' + fileType
         proxies = []
-        for row in range(self.proxiesModel.rowCount()):
+        if rows:
+            rows = sorted(list(rows))
+        else:
+            rows = range(self.proxiesModel.rowCount())
+        for row in rows:
             ip, port = self.modelRow(self.proxiesModel, row, ("ip", "port"))
             proxie = "{}:{}".format(ip, port)
             proxies.append(proxie)
@@ -348,6 +366,12 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         else:
             QtWidgets.QMessageBox.warning(self, "Error", msg)
 
+    def tableSelectedRows(self, table):
+        return {index.row() for index in table.selectionModel().selectedIndexes()}
+
+    @pyqtSlot()
+    def on_exportProxiesAction_triggered(self):
+        self.exportProxies()
 
     @pyqtSlot()
     def clearRecentFiles(self):
@@ -357,11 +381,8 @@ class MainWindow(QtWidgets.QMainWindow, ui):
 
     @pyqtSlot()
     def removeSelected(self):
-        rows = {index.row() for index in  self.proxiesTable.selectionModel().selectedIndexes()}
-        for row in sorted(list(rows), reverse=True):
-            ip, port = self.modelRow(self.proxiesModel, row, ("ip", "port"))
-            self.proxiesModel.removeRow(row)
-            self._proxies.remove(Proxy(ip, int(port)))
+        rows = self.tableSelectedRows(self.proxiesTable)
+        self.removeModelRows(self.proxiesModel, list(rows))
 
     @pyqtSlot()
     def clearTable(self):
@@ -483,7 +504,15 @@ class MainWindow(QtWidgets.QMainWindow, ui):
             if result["action"] == "check":
                 model = self.proxiesModel
                 data = result["data"]
-                self.setModelRow(self.proxiesModel, result["row"], ("anon",), (data["anon"][0],))
+                proxyType = data["anon"][0]
+                self.setModelRow(self.proxiesModel, result["row"], ("anon",), (proxyType,))
+                self._checkedProxiesCount += 1
+                if proxyType == "T":
+                    self._transparentProxiesCount += 1
+                elif proxyType == "A":
+                    self._anonymousProxiesCount += 1
+                elif proxyType == "E":
+                    self._anonymousProxiesCount += 1
             elif result["action"] == "scrape":
                 for proxy in result["data"]:
                     if proxy not in self._proxies:
@@ -514,12 +543,13 @@ class MainWindow(QtWidgets.QMainWindow, ui):
         menu.addAction(separator)
         exportSelectedAction = menu.addAction("Export selected")
         selected = menu.exec_(QCursor.pos())
+        selectedRows = self.tableSelectedRows(self.proxiesTable)
         if selected == checkSelectedAction:
-            print("check")
+            print(selectedRows)
         elif selected == removeSelectedAction:
-            print("remove")
+            self.removeSelected()
         elif selected == exportSelectedAction:
-            print("export")
+            self.exportProxies(selectedRows)
 
     def onResize(self, event):
         self.resizeTableColumns()
