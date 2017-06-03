@@ -15,11 +15,12 @@ if __name__ == "__main__":
     app.setOrganizationName(__author__)
     app.setOrganizationDomain("fuzzy69.com")
     app.setApplicationName(__title__)
-    app.setStyleSheet("""
-        QStatusBar::item {
-            border-left: 1px solid #BFBFBF;
-        }
-    """)
+    if os.path.isfile("assets/styles.qss"):
+        stylesheet = ""
+        with open("assets/styles.qss", 'r') as f:
+            stylesheet = f.read()
+        if stylesheet:
+            app.setStyleSheet(stylesheet)
     mainWindow = MainWindow()
     mainWindow.show()
     app.exec_()
