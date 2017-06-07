@@ -84,6 +84,8 @@ class CheckProxiesWorker(Worker):
             sleep(delay)
 
 class ScrapeProxiesWorker(Worker):
+    """
+    """
     status = pyqtSignal(object)
 
     def __init__(self, *args, **kwargs):

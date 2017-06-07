@@ -2,9 +2,6 @@
 # !/usr/bin/env python
 
 import os
-from collections import namedtuple, OrderedDict
-import platform
-from queue import Queue
 import webbrowser
 
 from PyQt5 import uic, QtWidgets

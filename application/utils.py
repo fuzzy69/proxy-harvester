@@ -34,21 +34,10 @@ def split_list(li, n):
     """
     Split list into n lists
 
-    Parameters
-    ----------
-    li : list
-        List to split
+    :param li list: List to split
+    :param n int: Split count
+    :return list: List of n lists
 
-    n : int
-        Split count
-
-    Returns
-    -------
-    list
-        List of n lists
-
-    Examples
-    --------
     >>> split_list([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 3)
     [[1, 2, 3, 4], [5, 6, 7], [8, 9, 10]]
     """
@@ -150,3 +139,6 @@ def check_anonymity(proxy, real_ip):
         pass
 
     return result
+
+def test2():
+    return 1

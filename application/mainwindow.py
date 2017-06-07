@@ -8,14 +8,14 @@ from queue import Queue
 
 from PyQt5 import uic, QtWidgets
 from PyQt5.QtCore import (
-    pyqtSlot, Qt, QFileInfo, QModelIndex, QSettings, QThread, QTimer,
+    pyqtSlot, Qt, QFileInfo, QSettings, QTimer,
     QT_VERSION_STR, PYQT_VERSION_STR
 )
 from PyQt5.QtGui import QKeySequence, QStandardItem, QStandardItemModel, QCursor
 
-from application.conf import __author__, __title__, __description__, ROOT, MAX_RECENT_FILES
+from application.conf import __title__, __description__, ROOT, MAX_RECENT_FILES
 from application.defaults import DELAY, THREADS, TIMEOUT, PROXY_SOURCES
-from application.helpers import readTextFile, Logger
+from application.helpers import Logger
 from application.optionsdialog import OptionsDialog
 from application.proxy import Proxy
 from application.utils import get_real_ip, split_list
